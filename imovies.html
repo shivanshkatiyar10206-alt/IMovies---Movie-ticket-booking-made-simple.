@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>IMovies – Cinema Booking</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#f6f4f1;--card:#fff;--tx:#1b1b1f;--mu:#6b6b76;--ac:#d6213a;--bd:#e3e0dc;--ok:#1f9d55;--seat:#d8d5d0}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#101015;--card:#1b1b23;--tx:#f1f0ee;--mu:#9a9aa8;--ac:#ff4560;--bd:#2c2c38;--ok:#3ecf7a;--seat:#3a3a48}}
+:root[data-theme=dark]{--bg:#101015;--card:#1b1b23;--tx:#f1f0ee;--mu:#9a9aa8;--ac:#ff4560;--bd:#2c2c38;--ok:#3ecf7a;--seat:#3a3a48}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+nav{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:12px 20px;background:var(--card);border-bottom:1px solid var(--bd);position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
+nav b{font-size:20px;color:var(--ac);margin-right:auto;cursor:pointer}
+a,.lnk{color:var(--tx);text-decoration:none;cursor:pointer;padding:6px 10px;border-radius:8px}a:hover,.lnk:hover{background:var(--bd)}
+main{max-width:1050px;margin:0 auto;padding:20px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:16px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px}
+.poster{height:150px;border-radius:10px;display:grid;place-items:center;font-size:64px;margin-bottom:10px}
+.mc{cursor:pointer;transition:transform .15s}.mc:hover{transform:translateY(-3px)}
+.mu{color:var(--mu);font-size:13px}.tag{display:inline-block;background:var(--bd);border-radius:20px;padding:1px 9px;font-size:12px;margin:2px 3px 2px 0}
+input,select,textarea{background:var(--bg);color:var(--tx);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;font:inherit;max-width:100%}
+.btn{background:var(--ac);color:#fff;border:0;border-radius:8px;padding:8px 16px;font:inherit;font-weight:600;cursor:pointer}.btn.o{background:none;color:var(--tx);border:1px solid var(--bd)}.btn:disabled{opacity:.45;cursor:not-allowed}.btn.s{padding:4px 10px;font-size:13px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:12px 0}
+.screen{height:6px;background:var(--ac);border-radius:6px;margin:18px auto 22px;width:70%;box-shadow:0 8px 20px var(--ac)}
+.seats{display:grid;gap:7px;justify-content:center;overflow-x:auto;padding:4px}
+.seat{width:34px;height:30px;border-radius:7px 7px 3px 3px;background:var(--seat);border:0;color:var(--tx);font-size:11px;cursor:pointer}.seat.sel{background:var(--ok);color:#fff}.seat.bk{background:var(--ac);opacity:.35;cursor:not-allowed}
+.show{display:inline-block;border:1px solid var(--ok);color:var(--ok);border-radius:8px;padding:6px 12px;margin:4px 6px 4px 0;cursor:pointer;font-weight:600}.show:hover{background:var(--ok);color:#fff}
+.tbl{width:100%;border-collapse:collapse}.tbl td,.tbl th{padding:8px;border-bottom:1px solid var(--bd);text-align:left}
+.tw{overflow-x:auto}
+#toast{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));display:grid;gap:8px;z-index:20}
+#toast div{background:var(--card);border-left:4px solid var(--ok);padding:10px 16px;border-radius:8px;box-shadow:0 4px 18px #0004}#toast .er{border-color:var(--ac)}
+.st{display:inline-block;padding:1px 9px;border-radius:20px;font-size:12px;background:var(--ok);color:#fff}.st.c{background:var(--ac)}
+h1,h2,h3{margin:.4em 0}.pg{display:flex;gap:6px;justify-content:center;margin:18px 0}
+.lg{display:flex;gap:14px;justify-content:center;font-size:12px;margin-top:10px}.lg i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:4px;vertical-align:middle}
+</style></head><body>
+<nav id="nav"></nav><main id="app"></main><div id="toast"></div>
+<script>
+const K='imovies_db',PER=6,ROWS='ABCDEF',COLS=8;
+const today=(o=0)=>{const d=new Date();d.setDate(d.getDate()+o);return d.toISOString().slice(0,10)};
+const hash=s=>{let x=5381;for(const c of s+'imv')x=(x*33^c.charCodeAt(0))>>>0;return x.toString(16)};
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid=()=>Math.random().toString(36).slice(2,9);
+const colors=['#7c3aed33','#e11d4833','#0891b233','#d9770633','#16a34a33','#db277733'];
+function seed(){
+ const movies=[
+ ['Neon Horizon','Sci-Fi','English',128,'🚀','A pilot chases a signal beyond the edge of the solar system.'],
+ ['Monsoon Melody','Romance','Hindi',142,'🌧️','Two musicians meet during a Bhopal monsoon and write one song together.'],
+ ['The Last Heist','Action','English',115,'💰','A retired thief takes one final job in a city that never sleeps.'],
+ ['Chai Tapri','Comedy','Hindi',124,'☕','A tea-stall owner accidentally becomes a viral food star.'],
+ ['Kaadu','Thriller','Tamil',131,'🌲','A forest officer uncovers a secret hidden deep in the jungle.'],
+ ['Pixel Pals','Animation','English',96,'🎮','Arcade characters escape the cabinet and explore the real world.'],
+ ['Raat Ka Raaz','Horror','Hindi',108,'👻','A family moves into a haveli with a very restless history.'],
+ ['Sunrise Express','Drama','Telugu',138,'🚆','Strangers on an overnight train change each other’s lives.']
+ ].map(m=>({id:uid(),title:m[0],genre:m[1],language:m[2],duration:m[3],emoji:m[4],desc:m[5]}));
+ const theatres=[['PVR Aashima Mall','Bhopal'],['INOX DB City','Bhopal'],['Cinepolis Treasure Island','Indore'],['Carnival Cinemas','Mumbai']].map(t=>({id:uid(),name:t[0],city:t[1]}));
+ const shows=[];
+ movies.forEach((m,i)=>[0,1,2].forEach(d=>[0,1].forEach(k=>{const t=theatres[(i+k)%4];shows.push({id:uid(),movieId:m.id,theatreId:t.id,date:today(d),time:['13:30','19:00','21:45'][(i+k+d)%3],price:150+((i+k)%3)*50,booked:[]})})));
+ return{users:[{id:uid(),name:'Admin',email:'admin@imovies.com',pass:hash('admin123'),role:'admin'},{id:uid(),name:'Demo User',email:'user@imovies.com',pass:hash('user123'),role:'user'}],movies,theatres,shows,bookings:[],notifications:[],session:null};
+}
+let db;try{db=JSON.parse(localStorage.getItem(K))}catch(e){}
+if(!db){db=seed();save()}
+function save(){try{localStorage.setItem(K,JSON.stringify(db))}catch(e){}}
+addEventListener('storage',e=>{if(e.key===K){try{db=JSON.parse(e.newValue)}catch(x){}if(location.hash.startsWith('#/book'))liveSeats();else if(!/login|pay/.test(location.hash))route()}});
+const me=()=>db.users.find(u=>u.id===db.session);
+const mv=id=>db.movies.find(m=>m.id==id),th=id=>db.theatres.find(t=>t.id==id),sh=id=>db.shows.find(s=>s.id==id);
+const toast=(m,er)=>{const d=document.createElement('div');d.textContent=m;if(er)d.className='er';$('#toast').append(d);setTimeout(()=>d.remove(),3200)};
+const $=s=>document.querySelector(s);
+const go=p=>{location.hash=p};
+const guard=(role)=>{const u=me();if(!u){toast('Please log in first',1);go('#/login');return false}if(role&&u.role!==role){toast('Access denied',1);go('#/');return false}return true};
+let F={q:'',genre:'',language:'',city:'',date:'',page:1},sel=[];
+function renderNav(){const u=me();$('#nav').innerHTML=`<b onclick="go('#/')">🎬 IMovies</b><a href="#/">Movies</a>`+(u?`<a href="#/bookings">My Bookings</a>${u.role=='admin'?'<a href="#/admin">Admin</a>':''}<span class="mu">${esc(u.name)} (${u.role})</span><span class="lnk" onclick="logout()">Logout</span>`:`<a href="#/login">Login / Register</a>`)+`<span class="lnk" onclick="document.documentElement.dataset.theme=document.documentElement.dataset.theme=='dark'?'light':'dark'">◐</span>`}
+function logout(){db.session=null;save();toast('Logged out');go('#/')}
+function route(){renderNav();const[,p,id]=location.hash.split('/');const v={'':home,undefined:home,movie:()=>movie(id),book:()=>book(id),bookings,admin,login,confirm:()=>confirmP(id)};(v[p||'']||home)();scrollTo(0,0)}
+addEventListener('hashchange',()=>{sel=[];route()});
+function home(){
+ const cities=[...new Set(db.theatres.map(t=>t.city))],gen=[...new Set(db.movies.map(m=>m.genre))],lan=[...new Set(db.movies.map(m=>m.language))];
+ const opt=(a,v)=>`<option value="">All</option>`+a.map(x=>`<option ${x==v?'selected':''}>${esc(x)}</option>`).join('');
+ $('#app').innerHTML=`<h2>Now Showing</h2><div class="row"><input id="q" placeholder="Search movies…" value="${esc(F.q)}">
+ <select id="genre">${opt(gen,F.genre)}</select><select id="language">${opt(lan,F.language)}</select><select id="city">${opt(cities,F.city)}</select>
+ <input type="date" id="date" value="${F.date}"><button class="btn o s" id="clr">Clear</button></div><div id="list"></div>`;
+ ['q','genre','language','city','date'].forEach(k=>$('#'+k).oninput=e=>{F[k]=e.target.value;F.page=1;list()});
+ $('#clr').onclick=()=>{F={q:'',genre:'',language:'',city:'',date:'',page:1};home()};list();
+}
+function list(){
+ const r=db.movies.filter(m=>{if(F.q&&!m.title.toLowerCase().includes(F.q.toLowerCase()))return false;if(F.genre&&m.genre!=F.genre)return false;if(F.language&&m.language!=F.language)return false;
+  if(F.city||F.date){return db.shows.some(s=>s.movieId==m.id&&(!F.date||s.date==F.date)&&(!F.city||th(s.theatreId).city==F.city))}return true});
+ const pages=Math.max(1,Math.ceil(r.length/PER));F.page=Math.min(F.page,pages);
+ $('#list').innerHTML=r.length?`<div class="grid">${r.slice((F.page-1)*PER,F.page*PER).map((m,i)=>`<div class="card mc" onclick="go('#/movie/${m.id}')"><div class="poster" style="background:${colors[i%6]}">${m.emoji}</div><b>${esc(m.title)}</b><div class="mu">${esc(m.language)} · ${m.duration} min</div><span class="tag">${esc(m.genre)}</span></div>`).join('')}</div>
+ <div class="pg">${Array.from({length:pages},(_,i)=>`<button class="btn ${i+1==F.page?'':'o'} s" onclick="F.page=${i+1};list()">${i+1}</button>`).join('')}</div>`:'<p class="mu">No movies match your filters.</p>';
+}
+function movie(id){
+ const m=mv(id);if(!m)return go('#/');const days={};
+ db.shows.filter(s=>s.movieId==id&&s.date>=today()).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time)).forEach(s=>(days[s.date]=days[s.date]||[]).push(s));
+ $('#app').innerHTML=`<div class="card"><div class="row" style="align-items:flex-start"><div class="poster" style="width:160px;background:${colors[0]}">${m.emoji}</div><div style="flex:1;min-width:220px"><h1>${esc(m.title)}</h1>
+ <span class="tag">${esc(m.genre)}</span><span class="tag">${esc(m.language)}</span><span class="tag">${m.duration} min</span><p>${esc(m.desc)}</p></div></div></div>
+ <h2>Select a show</h2>${Object.keys(days).length?Object.entries(days).map(([d,ss])=>`<div class="card" style="margin-bottom:10px"><b>${new Date(d+'T00:00').toDateString()}</b>${[...new Set(ss.map(s=>s.theatreId))].map(t=>`<div style="margin-top:8px"><span class="mu">${esc(th(t).name)}, ${esc(th(t).city)}</span><br>${ss.filter(s=>s.theatreId==t).map(s=>`<span class="show" onclick="go('#/book/${s.id}')">${s.time} · ₹${s.price}</span>`).join('')}</div>`).join('')}</div>`).join(''):'<p class="mu">No upcoming shows.</p>'}`;
+}
+function book(id){
+ if(!guard())return;const s=sh(id);if(!s)return go('#/');const m=mv(s.movieId),t=th(s.theatreId);
+ $('#app').innerHTML=`<h2>${esc(m.title)}</h2><div class="mu">${esc(t.name)}, ${esc(t.city)} · ${s.date} · ${s.time} · ₹${s.price}/seat · <span id="live">● live</span></div>
+ <div class="screen"></div><div id="seats" class="seats"></div>
+ <div class="lg"><span><i style="background:var(--seat)"></i>Available</span><span><i style="background:var(--ok)"></i>Selected</span><span><i style="background:var(--ac);opacity:.4"></i>Booked</span></div>
+ <div class="card" id="sum" style="margin-top:18px"></div><div id="pay"></div>`;liveSeats();
+}
+function liveSeats(){
+ const id=location.hash.split('/')[2],s=sh(id);if(!s||!$('#seats'))return;sel=sel.filter(x=>!s.booked.includes(x));
+ $('#seats').style.gridTemplateColumns=`repeat(${COLS},34px)`;
+ $('#seats').innerHTML=[...ROWS].flatMap(r=>Array.from({length:COLS},(_,c)=>{const n=r+(c+1);return`<button class="seat ${s.booked.includes(n)?'bk':sel.includes(n)?'sel':''}" ${s.booked.includes(n)?'disabled':''} onclick="tog('${n}')">${n}</button>`})).join('');
+ $('#sum').innerHTML=`<b>${sel.length} seat(s):</b> ${sel.join(', ')||'none selected'} <span style="float:right"><b>₹${sel.length*s.price}</b></span><div class="row"><button class="btn" ${sel.length?'':'disabled'} onclick="payForm()">Proceed to Payment</button></div>`;
+}
+function tog(n){sel=sel.includes(n)?sel.filter(x=>x!=n):sel.length<8?[...sel,n]:(toast('Max 8 seats per booking',1),sel);liveSeats()}
+function payForm(){
+ const s=sh(location.hash.split('/')[2]);
+ $('#pay').innerHTML=`<div class="card" style="margin-top:14px"><h3>Payment · ₹${sel.length*s.price}</h3><div class="row"><input id="cn" placeholder="Card holder name"><input id="cc" placeholder="Card number" maxlength="19"><input id="ce" placeholder="MM/YY" size="6"><input id="cv" placeholder="CVV" type="password" size="4" maxlength="3"></div>
+ <div class="mu">Demo: any 16-digit number works. A card ending in 0000 simulates a failed payment.</div><div class="row"><button class="btn" id="pb" onclick="pay()">Pay now</button></div></div>`;$('#pay').scrollIntoView({behavior:'smooth'});
+}
+function pay(){
+ const id=location.hash.split('/')[2],s=sh(id),cc=$('#cc').value.replace(/\s/g,'');
+ if(!$('#cn').value.trim()||!/^\d{16}$/.test(cc)||!/^\d{2}\/\d{2}$/.test($('#ce').value)||!/^\d{3}$/.test($('#cv').value))return toast('Enter valid card details',1);
+ $('#pb').disabled=true;$('#pb').textContent='Processing…';
+ setTimeout(()=>{
+  db=JSON.parse(localStorage.getItem(K)||JSON.stringify(db));const s2=sh(id);
+  if(sel.some(x=>s2.booked.includes(x))){toast('Some seats were just taken. Please reselect.',1);liveSeats();return payForm()}
+  if(cc.endsWith('0000')){toast('Payment declined by bank. No seats were charged.',1);$('#pb').disabled=false;$('#pb').textContent='Pay now';return}
+  const b={id:uid(),userId:db.session,showId:id,seats:[...sel],amount:sel.length*s2.price,status:'confirmed',payment:{ref:'TXN'+uid().toUpperCase(),status:'success',last4:cc.slice(-4)},createdAt:Date.now()};
+  s2.booked.push(...sel);db.bookings.push(b);db.notifications.push({id:uid(),userId:db.session,text:'Booking confirmed: '+mv(s2.movieId).title});save();sel=[];toast('Payment successful 🎉');go('#/confirm/'+b.id);
+ },900);
+}
+function confirmP(id){
+ if(!guard())return;const b=db.bookings.find(x=>x.id==id);if(!b)return go('#/');const s=sh(b.showId),m=mv(s.movieId),t=th(s.theatreId);
+ $('#app').innerHTML=`<div class="card" style="max-width:480px;margin:auto;text-align:center"><div style="font-size:50px">✅</div><h2>Booking confirmed</h2><div class="poster" style="font-size:40px;height:80px;background:${colors[1]}">${m.emoji}</div>
+ <b>${esc(m.title)}</b><p class="mu">${esc(t.name)}, ${esc(t.city)}<br>${s.date} at ${s.time}</p><p>Seats: <b>${b.seats.join(', ')}</b><br>Paid: <b>₹${b.amount}</b> (card ••${b.payment.last4})<br>Ref: ${b.payment.ref}</p><button class="btn" onclick="go('#/bookings')">View my bookings</button></div>`;
+}
+const isPast=s=>new Date(s.date+'T'+s.time)<new Date();
+function bookings(){
+ if(!guard())return;const mine=db.bookings.filter(b=>b.userId==db.session).sort((a,b)=>b.createdAt-a.createdAt);
+ const sec=(title,arr)=>`<h3>${title} (${arr.length})</h3>`+(arr.length?`<div class="tw"><table class="tbl"><tr><th>Movie</th><th>Theatre</th><th>When</th><th>Seats</th><th>Amount</th><th>Status</th><th></th></tr>${arr.map(b=>{const s=sh(b.showId),past=s&&isPast(s);return`<tr><td>${esc(mv(s.movieId).title)}</td><td>${esc(th(s.theatreId).name)}</td><td>${s.date} ${s.time}</td><td>${b.seats.join(', ')}</td><td>₹${b.amount}</td><td><span class="st ${b.status=='cancelled'?'c':''}">${b.status}</span></td><td>${b.status=='confirmed'&&!past?`<button class="btn o s" onclick="cancelB('${b.id}')">Cancel</button>`:''}</td></tr>`}).join('')}</table></div>`:'<p class="mu">Nothing here yet.</p>');
+ const up=mine.filter(b=>!isPast(sh(b.showId))),pa=mine.filter(b=>isPast(sh(b.showId)));
+ $('#app').innerHTML='<h2>My Bookings</h2>'+sec('Upcoming',up)+sec('Past',pa);
+}
+function cancelB(id){
+ if(!confirm('Cancel this booking? The amount will be refunded.'))return;const b=db.bookings.find(x=>x.id==id),s=sh(b.showId);
+ b.status='cancelled';b.payment.status='refunded';s.booked=s.booked.filter(x=>!b.seats.includes(x));save();toast('Booking cancelled · refund initiated');bookings();
+}
+function login(){
+ let reg=false;const draw=()=>{$('#app').innerHTML=`<div class="card" style="max-width:380px;margin:30px auto"><h2>${reg?'Create account':'Welcome back'}</h2>
+ ${reg?'<p><input id="n" placeholder="Full name" style="width:100%"></p>':''}<p><input id="e" type="email" placeholder="Email" style="width:100%"></p><p><input id="p" type="password" placeholder="Password (min 6)" style="width:100%"></p>
+ <button class="btn" id="go" style="width:100%">${reg?'Register':'Login'}</button><p class="mu" style="text-align:center"><span class="lnk" id="sw">${reg?'Have an account? Login':'New here? Register'}</span></p>
+ <p class="mu">Demo: admin@imovies.com / admin123 · user@imovies.com / user123</p></div>`;
+ $('#sw').onclick=()=>{reg=!reg;draw()};
+ $('#go').onclick=()=>{const e=$('#e').value.trim().toLowerCase(),p=$('#p').value;
+  if(!/^\S+@\S+\.\S+$/.test(e)||p.length<6)return toast('Enter a valid email and a 6+ character password',1);
+  if(reg){const n=$('#n').value.trim();if(!n)return toast('Name is required',1);if(db.users.some(u=>u.email==e))return toast('Email already registered',1);
+   const u={id:uid(),name:n,email:e,pass:hash(p),role:'user'};db.users.push(u);db.session=u.id}
+  else{const u=db.users.find(u=>u.email==e&&u.pass==hash(p));if(!u)return toast('Invalid email or password',1);db.session=u.id}
+  save();toast('Welcome, '+me().name);go(me().role=='admin'?'#/admin':'#/')}};draw();
+}
+function admin(){
+ if(!guard('admin'))return;const rev=db.bookings.filter(b=>b.status=='confirmed').reduce((a,b)=>a+b.amount,0);
+ const o=(a,f)=>a.map(x=>`<option value="${x.id}">${esc(f(x))}</option>`).join('');
+ $('#app').innerHTML=`<h2>Admin Dashboard</h2><div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">${[['Movies',db.movies.length],['Theatres',db.theatres.length],['Shows',db.shows.length],['Bookings',db.bookings.length],['Revenue','₹'+rev]].map(x=>`<div class="card"><div class="mu">${x[0]}</div><h2>${x[1]}</h2></div>`).join('')}</div>
+ <h3>Add movie</h3><div class="card row"><input id="mt" placeholder="Title"><input id="mg" placeholder="Genre"><input id="ml" placeholder="Language"><input id="md" type="number" placeholder="Minutes" style="width:100px"><input id="me" placeholder="Emoji" size="3" value="🎬"><input id="mx" placeholder="Description" style="flex:1;min-width:200px"><button class="btn" onclick="addMovie()">Add</button></div>
+ <h3>Add theatre</h3><div class="card row"><input id="tn" placeholder="Theatre name"><input id="tc" placeholder="City"><button class="btn" onclick="addTheatre()">Add</button></div>
+ <h3>Schedule show</h3><div class="card row"><select id="sm">${o(db.movies,m=>m.title)}</select><select id="st">${o(db.theatres,t=>t.name+' – '+t.city)}</select><input id="sd" type="date" value="${today(1)}"><input id="si" type="time" value="18:00"><input id="sp" type="number" placeholder="Price ₹" value="200" style="width:100px"><button class="btn" onclick="addShow()">Schedule</button></div>
+ <h3>Movies</h3><div class="tw"><table class="tbl">${db.movies.map(m=>`<tr><td>${m.emoji} ${esc(m.title)}</td><td>${esc(m.genre)}</td><td>${esc(m.language)}</td><td>${db.shows.filter(s=>s.movieId==m.id).length} shows</td><td><button class="btn o s" onclick="delMovie('${m.id}')">Delete</button></td></tr>`).join('')}</table></div>
+ <h3>Upcoming shows</h3><div class="tw"><table class="tbl">${db.shows.filter(s=>s.date>=today()).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time)).slice(0,25).map(s=>`<tr><td>${esc(mv(s.movieId)?.title||'?')}</td><td>${esc(th(s.theatreId)?.name||'?')}</td><td>${s.date} ${s.time}</td><td>₹${s.price}</td><td>${s.booked.length}/${ROWS.length*COLS} sold</td><td><button class="btn o s" onclick="delShow('${s.id}')">Delete</button></td></tr>`).join('')}</table></div>`;
+}
+function addMovie(){const t=$('#mt').value.trim(),g=$('#mg').value.trim(),l=$('#ml').value.trim(),d=+$('#md').value;if(!t||!g||!l||d<1)return toast('Fill title, genre, language and duration',1);
+ db.movies.push({id:uid(),title:t,genre:g,language:l,duration:d,emoji:$('#me').value||'🎬',desc:$('#mx').value.trim()});save();toast('Movie added');admin()}
+function addTheatre(){const n=$('#tn').value.trim(),c=$('#tc').value.trim();if(!n||!c)return toast('Name and city required',1);db.theatres.push({id:uid(),name:n,city:c});save();toast('Theatre added');admin()}
+function addShow(){const p=+$('#sp').value,d=$('#sd').value;if(!d||!$('#si').value||p<1)return toast('Complete all show fields',1);if(!db.movies.length||!db.theatres.length)return toast('Add a movie and theatre first',1);
+ db.shows.push({id:uid(),movieId:$('#sm').value,theatreId:$('#st').value,date:d,time:$('#si').value,price:p,booked:[]});save();toast('Show scheduled');admin()}
+function delMovie(id){if(!confirm('Delete movie and its shows?'))return;db.movies=db.movies.filter(m=>m.id!=id);db.shows=db.shows.filter(s=>s.movieId!=id);save();toast('Movie deleted');admin()}
+function delShow(id){const s=sh(id);if(s.booked.length&&!confirm('This show has bookings. Delete anyway?'))return;db.shows=db.shows.filter(x=>x.id!=id);db.bookings.filter(b=>b.showId==id).forEach(b=>b.status='cancelled');save();toast('Show deleted');admin()}
+route();
+</script></body></html>
